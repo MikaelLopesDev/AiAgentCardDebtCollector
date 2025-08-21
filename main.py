@@ -4,12 +4,15 @@ from dotenv import load_dotenv
 import os
 import requests
 from datetime import datetime
+import json
 
 
 class AiAgentCardDebtCollector:
     def __init__(self):        
         load_dotenv()
         self.client = genai.Client()
+        with open("config.json", encoding="utf-8") as config_file:
+            self.config = json.load(config_file)
         
         
   
@@ -60,7 +63,31 @@ if __name__ == '__main__':
     now_month_year = datetime.now().strftime("%b-%y").lower()
     rows_info_debts_friends = charge.DebtsDataFromSheet(os.getenv("SPREADSHEET_ID"),os.getenv("API_KEY"),f"{now_month_year}!D13:G22")
     if not rows_info_debts_friends is None:
-        for row in rows_info_debts_friends:            
-            message = charge.AgentCreatMessage(name_friend=row[0], debt_description=row[1], debt_totalPrice=row[2])
-            print(message)
+        for row in rows_info_debts_friends:
+            if  charge.config["dictNumbersFriends"].get(row[0]) is not None:
+                
+                message = charge.AgentCreatMessage(name_friend=row[0], debt_description=row[1], debt_totalPrice=row[2])
+                print(message)
+                
+                headers = {
+                    'apikey': os.getenv("AUTHENTICATION_API_KEY"),
+                    'Content-Type': 'application/json'
+                }
+                payload = {
+                    'number': f'{charge.config["dictNumbersFriends"][row[0]]}',
+                    'text': f'{message}',
+                    # 'delay': 10000, # simular "digitando"
+                }
+                response = requests.post(
+                    url=f'{os.getenv("BASE_URL")}/message/sendText/{os.getenv("INSTANCE_NAME")}',
+                    json=payload,
+                    headers=headers,
+                )
+                print(response.json())
+                        
+                
+          
+              
+            else:
+                print(f"Not exist number in dict on cofig to the name: {(row[0])}")
 
